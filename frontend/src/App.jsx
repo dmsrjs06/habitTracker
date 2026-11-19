@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import './App.css'
+const [stats, setStats] = useState(null)
 
 function lastSevenDays() {
   const days = []
@@ -20,16 +21,20 @@ export default function App() {
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
 
-  const load = async () => {
-    try {
-      const res = await fetch('/api/habits')
-      if (!res.ok) throw new Error()
-      setHabits(await res.json())
-      setError('')
-    } catch {
-      setError('서버에 연결할 수 없어요. 백엔드가 실행 중인지 확인하세요.')
-    }
+const load = async () => {
+  try {
+    const [res, statsRes] = await Promise.all([
+      fetch('/api/habits'),
+      fetch('/api/habits/stats'),
+    ])
+    if (!res.ok) throw new Error()
+    setHabits(await res.json())
+    if (statsRes.ok) setStats(await statsRes.json())
+    setError('')
+  } catch {
+    setError('서버에 연결할 수 없어요. 백엔드가 실행 중인지 확인하세요.')
   }
+}
 
   useEffect(() => {
     load()
@@ -89,7 +94,22 @@ const saveEdit = async (habit) => {
   return (
     <div className="app">
       <h1>습관 트래커</h1>
-
+          {stats && stats.total > 0 && (
+  <div className="stats">
+    <div className="stat">
+      <strong>{stats.doneToday} / {stats.total}</strong>
+      <span>오늘 달성</span>
+    </div>
+    <div className="stat">
+      <strong>{stats.weekRate}%</strong>
+      <span>주간 달성률</span>
+    </div>
+    <div className="stat">
+      <strong>🔥 {stats.bestStreak}일</strong>
+      <span>최장 연속</span>
+    </div>
+  </div>
+)}
       <form onSubmit={addHabit} className="add-form">
         <input
           value={name}

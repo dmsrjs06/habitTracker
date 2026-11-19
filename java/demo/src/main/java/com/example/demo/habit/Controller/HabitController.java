@@ -1,6 +1,7 @@
 package com.example.demo.habit.Controller;
 
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -96,6 +97,35 @@ public class HabitController {
     public Map<String, Integer> streak(@PathVariable Long id) {
         List<HabitLog> logs = logRepo.findByHabitIdOrderByDateDesc(id);
         return Map.of("streak", calcStreak(logs, LocalDate.now()));
+    }
+        @GetMapping("/stats")
+    public Map<String, Object> stats() {
+        List<Habit> habits = repo.findAll();
+        LocalDate today = LocalDate.now();
+        LocalDate weekStart = today.minusDays(6);
+
+        int total = habits.size();
+        int doneToday = 0;
+        int weekChecks = 0;
+        int bestStreak = 0;
+
+        for (Habit h : habits) {
+            List<HabitLog> logs = logRepo.findByHabitIdOrderByDateDesc(h.getId());
+            if (logs.stream().anyMatch(l -> l.getDate().equals(today))) doneToday++;
+            weekChecks += (int) logs.stream()
+                    .filter(l -> !l.getDate().isBefore(weekStart) && !l.getDate().isAfter(today))
+                    .count();
+            bestStreak = Math.max(bestStreak, calcStreak(logs, today));
+        }
+
+        int weekRate = total == 0 ? 0 : Math.round(weekChecks * 100f / (total * 7));
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("total", total);
+        result.put("doneToday", doneToday);
+        result.put("weekRate", weekRate);
+        result.put("bestStreak", bestStreak);
+        return result;
     }
 
     private HabitResponse toResponse(Habit h) {
