@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import './App.css'
-const [stats, setStats] = useState(null)
 
 function lastSevenDays() {
   const days = []
@@ -15,26 +14,26 @@ function lastSevenDays() {
 
 export default function App() {
   const [habits, setHabits] = useState([])
+  const [stats, setStats] = useState(null)
   const [name, setName] = useState('')
   const [error, setError] = useState('')
-
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
 
-const load = async () => {
-  try {
-    const [res, statsRes] = await Promise.all([
-      fetch('/api/habits'),
-      fetch('/api/habits/stats'),
-    ])
-    if (!res.ok) throw new Error()
-    setHabits(await res.json())
-    if (statsRes.ok) setStats(await statsRes.json())
-    setError('')
-  } catch {
-    setError('서버에 연결할 수 없어요. 백엔드가 실행 중인지 확인하세요.')
+  const load = async () => {
+    try {
+      const [res, statsRes] = await Promise.all([
+        fetch('/api/habits'),
+        fetch('/api/habits/stats'),
+      ])
+      if (!res.ok) throw new Error()
+      setHabits(await res.json())
+      if (statsRes.ok) setStats(await statsRes.json())
+      setError('')
+    } catch {
+      setError('서버에 연결할 수 없어요. 백엔드가 실행 중인지 확인하세요.')
+    }
   }
-}
 
   useEffect(() => {
     load()
@@ -60,7 +59,7 @@ const load = async () => {
   }
 
   const toggleDate = async (habit, iso) => {
-    const checked = habit.recentDates.includes(iso)
+    const checked = (habit.recentDates ?? []).includes(iso)
     await fetch(`/api/habits/${habit.id}/check?date=${iso}`, {
       method: checked ? 'DELETE' : 'POST',
     })
@@ -68,13 +67,17 @@ const load = async () => {
   }
 
   const remove = async (habit) => {
+    if (!confirm(`'${habit.name}' 습관을 삭제할까요?`)) return
+    await fetch(`/api/habits/${habit.id}`, { method: 'DELETE' })
+    load()
+  }
 
-    const startEdit = (habit) => {
-  setEditingId(habit.id)
-  setEditName(habit.name)
-}
+  const startEdit = (habit) => {
+    setEditingId(habit.id)
+    setEditName(habit.name)
+  }
 
-const saveEdit = async (habit) => {
+  const saveEdit = async (habit) => {
     const trimmed = editName.trim()
     setEditingId(null)
     if (!trimmed || trimmed === habit.name) return
@@ -82,34 +85,31 @@ const saveEdit = async (habit) => {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: trimmed }),
-   })
-   load()
-  }
-
-    if (!confirm(`'${habit.name}' 습관을 삭제할까요?`)) return
-    await fetch(`/api/habits/${habit.id}`, { method: 'DELETE' })
+    })
     load()
   }
 
   return (
     <div className="app">
       <h1>습관 트래커</h1>
-          {stats && stats.total > 0 && (
-  <div className="stats">
-    <div className="stat">
-      <strong>{stats.doneToday} / {stats.total}</strong>
-      <span>오늘 달성</span>
-    </div>
-    <div className="stat">
-      <strong>{stats.weekRate}%</strong>
-      <span>주간 달성률</span>
-    </div>
-    <div className="stat">
-      <strong>🔥 {stats.bestStreak}일</strong>
-      <span>최장 연속</span>
-    </div>
-  </div>
-)}
+
+      {stats && stats.total > 0 && (
+        <div className="stats">
+          <div className="stat">
+            <strong>{stats.doneToday} / {stats.total}</strong>
+            <span>오늘 달성</span>
+          </div>
+          <div className="stat">
+            <strong>{stats.weekRate}%</strong>
+            <span>주간 달성률</span>
+          </div>
+          <div className="stat">
+            <strong>🔥 {stats.bestStreak}일</strong>
+            <span>최장 연속</span>
+          </div>
+        </div>
+      )}
+
       <form onSubmit={addHabit} className="add-form">
         <input
           value={name}
@@ -129,27 +129,27 @@ const saveEdit = async (habit) => {
             </button>
             <div className="info">
               {editingId === h.id ? (
-        <input
-        className="edit-input"
-        value={editName}
-        autoFocus
-        onChange={(e) => setEditName(e.target.value)}
-       onBlur={() => saveEdit(h)}
-        onKeyDown={(e) => {
-        if (e.key === 'Enter') e.target.blur()
-         if (e.key === 'Escape') setEditingId(null)
-       }}
-      />
-    ) : (
-  <span className="name" title="클릭해서 이름 수정" onClick={() => startEdit(h)}>
-    {h.name}
-  </span>
-)} 
+                <input
+                  className="edit-input"
+                  value={editName}
+                  autoFocus
+                  onChange={(e) => setEditName(e.target.value)}
+                  onBlur={() => saveEdit(h)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') e.target.blur()
+                    if (e.key === 'Escape') setEditingId(null)
+                  }}
+                />
+              ) : (
+                <span className="name" title="클릭해서 이름 수정" onClick={() => startEdit(h)}>
+                  {h.name}
+                </span>
+              )}
               <div className="week">
                 {lastSevenDays().map((d) => (
                   <button
                     key={d.iso}
-                    className={h.recentDates.includes(d.iso) ? 'dot on' : 'dot'}
+                    className={(h.recentDates ?? []).includes(d.iso) ? 'dot on' : 'dot'}
                     title={d.iso}
                     onClick={() => toggleDate(h, d.iso)}
                   >
